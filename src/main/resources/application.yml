@@ -1,0 +1,22 @@
+threadPool:
+  coreSize: 16
+  queueCapacity: 10000
+jetty:
+  threadPool:
+    minSize: 24
+    maxSize: 24
+---
+spring:
+    profiles: dev
+jetty:
+  threadPool:
+    minSize: 24
+    maxSize: 24
+
+---
+spring:
+    profiles: prod
+jetty:
+  threadPool:
+      minSize: 24
+      maxSize: 200
