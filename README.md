@@ -31,3 +31,8 @@ Update: 0609
 
 场景设定可能是有问题的.
 
+用wrk测试
+```
+./wrk -c 1000 -t 8 -d 30 --timeout=120 -s scripts/multiplepaths.lua http://192.168.200.23:9000/
+
+```
