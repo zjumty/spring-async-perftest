@@ -187,3 +187,62 @@ Transfer/sec:     41.23KB
 
 在同步模式下由于Http线程被高延迟处理霸占, 没有其他线程处理低延迟请求.
 而异步模式下由于高延迟处理不霸占HTTP线程, 所以低延迟的请求基本上没有受到影响.
+
+上面的测试是在服务器设置了16线程的情况下执行的. 如果高延迟处理占用了线程, 那我们把服务器线程设置为200再试试.
+
+结果如下:
+
+```
+./wrk -c 900 -t 8 -d 60 --timeout=120 http://192.168.200.23:9000/foo/nodelay
+Running 1m test @ http://192.168.200.23:9000/foo/nodelay
+  8 threads and 900 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    25.36ms   99.18ms   3.33s    99.21%
+    Req/Sec     5.90k     0.87k    8.96k    92.58%
+  2819464 requests in 1.00m, 725.99MB read
+Requests/sec:  46961.89
+Transfer/sec:     12.09MB
+
+./wrk -c 100 -t 8 -d 60 --timeout=120 http://192.168.200.23:9000/foo/sync-100ms
+Running 1m test @ http://192.168.200.23:9000/foo/sync-100ms
+  8 threads and 100 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency   610.49ms   37.34ms 689.02ms   97.20%
+    Req/Sec    25.67     21.57   101.00     72.72%
+  9359 requests in 1.00m, 2.41MB read
+Requests/sec:    155.80
+Transfer/sec:     41.08KB
+```
+
+可以看到同步模式比之前的结果好多了, 也就是高延迟处理不会对低延迟有很大影响, 但是任然比异步模式差.
+
+在看看200线程的异步模式的结果:
+```
+./wrk -c 900 -t 8 -d 60 --timeout=120 http://192.168.200.23:9000/foo/nodelay
+Running 1m test @ http://192.168.200.23:9000/foo/nodelay
+  8 threads and 900 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    20.05ms   18.33ms 890.99ms   92.99%
+    Req/Sec     6.01k   561.72    13.69k    90.15%
+  2874649 requests in 1.00m, 740.20MB read
+Requests/sec:  47831.09
+Transfer/sec:     12.32MB
+
+./wrk -c 100 -t 8 -d 60 --timeout=120 http://192.168.200.23:9000/foo/async-100ms
+Running 1m test @ http://192.168.200.23:9000/foo/async-100ms
+  8 threads and 100 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency   613.31ms   27.23ms 721.98ms   96.03%
+    Req/Sec    24.51     18.56    90.00     70.81%
+  9349 requests in 1.00m, 2.41MB read
+Requests/sec:    155.68
+Transfer/sec:     41.05KB
+```
+
+可以看到在200线程的异步模式只比同步模式好一点点.
+
+所以综合上面的测试结果, 可以得到如下结论: 异步Servlet模式在单场景和同步模式下几乎没有差别. 由于开发上更复杂所以没什么可取之处. 建议直接用同步模式. 在混合场景中如果是大量低延迟处理+少量高延迟处理的情况下, 由于异步模式不占用服务器线程, 可以有效减少服务器上的线程切换的资源消耗, 并且充分利用系统资源, 是有可取之处的.
+
+上面测试的最佳结果的配置:
+
+jetty服务器线程池16线程, 低延迟处理生成json立刻返回, 高延迟处理延迟100毫秒. 低延迟和高延迟请求比9:1. 
